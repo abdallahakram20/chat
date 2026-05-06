@@ -9,7 +9,7 @@ import json
 #  Config
 # ─────────────────────────────────────────────
 HOST     = '0.0.0.0'
-PORT = int(os.environ.get('PORT', 8080))
+PORT     = 50050
  
 SAVE_DIR = "server_received_files"
 os.makedirs(SAVE_DIR, exist_ok=True)
