@@ -10,9 +10,7 @@ from tkinter import simpledialog, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 from PIL import Image, ImageTk
 
-# ─────────────────────────────────────────────
-#  Config  ← غيّر HOST لـ IP السيرفر
-# ─────────────────────────────────────────────
+
 HOST = 'trolley.proxy.rlwy.net'
 PORT = 59839
 
@@ -27,9 +25,6 @@ IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
 VIDEO_EXTS = {'.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv'}
 
 
-# ─────────────────────────────────────────────
-#  Packet helpers  (نفس السيرفر بالظبط)
-# ─────────────────────────────────────────────
 def send_packet(conn, msg_type, payload_bytes, meta=None):
     header       = {'type': msg_type, 'length': len(payload_bytes), 'meta': meta or {}}
     header_bytes = json.dumps(header).encode('utf-8')
@@ -54,10 +49,6 @@ def recv_packet(conn):
     payload    = recv_exact(conn, header['length'])
     return header['type'], payload, header.get('meta', {})
 
-
-# ─────────────────────────────────────────────
-#  Compression helpers  (نفس السيرفر بالظبط)
-# ─────────────────────────────────────────────
 def compress_data(data: bytes) -> bytes:
     return zlib.compress(data, level=6)
 
@@ -75,9 +66,6 @@ def should_compress(filepath: str) -> bool:
     return os.path.getsize(filepath) > 10_240
 
 
-# ─────────────────────────────────────────────
-#  Image display helper
-# ─────────────────────────────────────────────
 def display_image_in_chat(chat_box, image_data: bytes, label: str):
     try:
         img   = Image.open(io.BytesIO(image_data))
@@ -101,16 +89,12 @@ def display_image_in_chat(chat_box, image_data: bytes, label: str):
         chat_box.yview(tk.END)
 
 
-# ─────────────────────────────────────────────
-#  Chat Client
-# ─────────────────────────────────────────────
 class ChatClient:
 
     def __init__(self):
         self.client   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.username = None
 
-        # اسأل عن الـ username قبل ما تعمل GUI
         root_tmp = tk.Tk()
         root_tmp.withdraw()
         self.username = simpledialog.askstring(
@@ -122,7 +106,6 @@ class ChatClient:
             print("No username entered. Exiting.")
             return
 
-        # اتصل بالسيرفر وابعت الـ username كأول packet
         try:
             self.client.connect((HOST, PORT))
             send_packet(self.client, MSG_TEXT, self.username.encode('utf-8'))
@@ -130,13 +113,12 @@ class ChatClient:
             messagebox.showerror("Connection Error", str(e))
             return
 
-        # ابني الـ GUI وابدأ thread الاستقبال
         self.root = tk.Tk()
         self._build_gui()
         threading.Thread(target=self._receive_loop, daemon=True).start()
         self.root.mainloop()
 
-    # ── GUI ───────────────────────────────────
+
     def _build_gui(self):
         self.root.title(f"Chat — {self.username}")
         self.root.configure(bg='#1e1e2e')
@@ -182,7 +164,6 @@ class ChatClient:
             bg='#a6e3a1', fg='#1e1e2e', **btn
         ).pack(side=tk.LEFT)
 
-    # ── Send text ─────────────────────────────
     def send_text(self):
         msg = self.entry.get().strip()
         if not msg:
@@ -194,7 +175,6 @@ class ChatClient:
         except Exception as e:
             self._append_chat(f"[Send Error: {e}]", tag='system')
 
-    # ── Send file ─────────────────────────────
     def send_file(self):
         filepath = filedialog.askopenfilename(
             title='Select a file to send',
@@ -246,7 +226,6 @@ class ChatClient:
                 'ext'           : ext
             }
 
-            # بعت في thread منفصل عشان الـ GUI ميتجمدش
             def _send():
                 try:
                     send_packet(self.client, MSG_FILE, payload, meta=meta)
@@ -268,7 +247,6 @@ class ChatClient:
         except Exception as e:
             self._append_chat(f"[File Error: {e}]", tag='system')
 
-    # ── Receive loop (background thread) ──────
     def _receive_loop(self):
         while True:
             try:
@@ -309,16 +287,11 @@ class ChatClient:
                     "Connection to server lost.", tag='system'))
                 break
 
-    # ── Append to chat box ────────────────────
     def _append_chat(self, text: str, tag: str = 'other'):
         self.chat_box.config(state=tk.NORMAL)
         self.chat_box.insert(tk.END, text + '\n', tag)
         self.chat_box.config(state=tk.DISABLED)
         self.chat_box.yview(tk.END)
 
-
-# ─────────────────────────────────────────────
-#  Entry point
-# ─────────────────────────────────────────────
 if __name__ == '__main__':
     ChatClient()
